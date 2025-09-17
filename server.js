@@ -8,13 +8,20 @@ require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Enhanced CORS configuration
+const allowedOrigins = [
+  "https://collab-table-editor-client.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:3001"
+];
+
 const io = socketIo(server, {
   cors: {
-    origin: [
-      "https://collab-table-editor-client.vercel.app",
-      "http://localhost:3000"
-    ],
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"]
   }
 });
 
@@ -34,15 +41,37 @@ const pgPool = new Pool({
 const redisClient = redis.createClient();
 redisClient.connect().catch(console.error);
 
-// Middleware
+// Enhanced CORS middleware
 app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST"],
-  allowedHeaders: ["Content-Type"],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Add this middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Origin:', req.headers.origin);
+  next();
+});
 
 // Initialize database tables and Redis data structures
 async function initDatabase() {
