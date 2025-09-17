@@ -36,13 +36,11 @@ redisClient.connect().catch(console.error);
 
 // Middleware
 app.use(cors({
-  origin: [
-    "https://collab-table-editor-client.vercel.app", 
-    "http://localhost:3000"
-  ],
+  origin: "*",
   methods: ["GET", "POST"],
-  credentials: true
+  allowedHeaders: ["Content-Type"],
 }));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
